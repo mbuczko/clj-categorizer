@@ -1,3 +1,5 @@
+[![Clojars Project](https://img.shields.io/clojars/v/mbuczko/categorizer.svg)](https://clojars.org/mbuczko/categorizer)
+
 # Category tree manager
 
 This is a rough attempt to create versatile category manager which would be simple to understand and powerful enough to handle different scenarios.
