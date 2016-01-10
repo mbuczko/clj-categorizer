@@ -60,22 +60,36 @@
 
 (defn sticky?
   "Is parameter inherited down the category tree?"
-  [[_ props]]
-  (:sticky props))
+  [prop]
+  (:sticky prop))
 
 (defn excluded?
   "Is parameter inherited down the category tree?"
-  [[_ props]]
-  (:excluded props))
+  [prop]
+  (:excluded prop))
+
+(defn sticky-merge
+  "Joins map m with [k v] only if v is sticky & not excluded.
+  If v is excluded (and sticky) removes existing k key from m.
+  Otherwise returns m."
+  [m [k v]]
+  (if (sticky? v)
+    (if (excluded? v)
+      (dissoc m k)
+      (assoc m k (dissoc v :sticky)))
+    m))
+
+(defn stickify-props
+  "Makes each property in m sticky by adding :sticky true"
+  [m]
+  (reduce-kv #(assoc %1 %2 (assoc %3 :sticky true)) {} m))
 
 (defn- collect-params
   "Calculates list of parameters for given loc in category tree."
   [loc]
-  (let [params (mapv :params (trail-at loc))
-        merged (apply merge (rseq params))]
-    (conj {}
-          (filter #(and (sticky? %) (not (excluded? %))) merged)
-          (filter (complement excluded?) (first params)))))
+  (let [params (-> (mapv :params (trail-at loc))
+                   (update-in [0] stickify-props))]
+    (reduce #(reduce sticky-merge %1 %2) {} (rseq params))))
 
 (defn lookup
   "Traverses a tree looking for a category of given path and
@@ -84,6 +98,7 @@
   (let [tree @*categories-tree*]
     (when-let [node (find-or-create-node (tree-zip tree) path false)]
       (-> (zip/node node)
+          (select-keys [:path])
           (assoc :params (collect-params node))))))
 
 (defn create-category

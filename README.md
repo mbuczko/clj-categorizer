@@ -3,9 +3,9 @@
 This is a rough attempt to create versatile category manager which would be simple to understand and powerful enough to handle different scenarios.
 What are all those categories and where the problem actually arises?
 
-Categories are everywhere. We use them to classify things, enclose same features into named groups which usually have their own subgroups which have their own subgroups and so on.
+Categories are everywhere. We use them to classify things, enclose same features into named groups which usually have their own subgroups which in turn have their own subgroups and so on.
 One of the real world examples are cars. We split them by function they were built for (eg. trucks, agriculturals...), by make (BMW, VW), by model or serie.
-Soon it's quite obvious that all categories together can be easily visualized as a tree. In case of car we may imagine categories as a tree with following levels:
+It's natural to visualize all categories together as a deeply nested tree. In case of car we may imagine categories as a tree with following levels:
 
     car -> make -> serie -> model
 
@@ -39,14 +39,80 @@ That's how our fantasy world look like. In fact Tarpans have no ABS-es (but hey,
 
 Yup, simple like this. We still keep inherited ```:has-abs``` at top but additionally we marked Tarpans as an exception which should have ```:has-abs``` excluded. This way we avoid _Scenario 1_ with separate assignments still having nice way to exclude property from certain nodes.
 
-Now, let's imagine for a moment that BMW is the make with no ABS-es under the hood (looking at some BMW drivers it's not as hard to imagine that). BMW has lot of series and models which would make us exclude property multiple times (if we followed _Scenario 3_). Fortunatell, it could be simplfied again. Let's welcome _Scenario 4_ - the last one.
+Now, let's imagine for a moment that BMW is the make with no ABS-es under the hood (looking at some BMW drivers it's not as hard to imagine that). BMW has lot of series and models which would make us exclude property multiple times (if we followed _Scenario 3_). Fortunatelly, it could be simplfied again. Let's welcome _Scenario 4_ - the last one.
 
 ![scenario4](https://github.com/mbuczko/categorizer/blob/master/scenario4.png "scenario 4")
 
 That's right - we're using inheritance again, this time to make exclusion easier. Instead of assigning exluded ```:has-abs```  to each BMW subnode, we may do it once (at BMW level) and mark exclusion as inherited. That means, all the subnodes have no ABS-es by default with no explicit exclusions made before.
+
+#Details
+
+We have 4 scenarios of how properties can be assigned to tree nodes to save us a time and precious resources. Let's go deeper into details then.
+4 scenarios mean 2 boolean flags we should use. I named them ```sticky``` and ```excluded```. Here is how they fit into our story:
+
+- when a single property is assigned (_Scenario 1_) no flag is necessary
+- when a inherited property is assigned (_Scenario 2_) a ```sticky``` flag should be used (we want property to "stick" to all the nodes down)
+- when a property is excluded (_Scenario 3_) an ```excluded``` flag should be used
+- when a property is excluded and exclusion is inherited - ```sticky``` and ```excluded``` flags should be used together
+
+Easy peasy. The theory part is over :)
+
+
 #Example
 
-[todo]
+Let's define our tree first. Each property (like ```:price```, ```:type``` or ```status```) is a simple map containing ```:sticky``` and/or ```:excluded``` flags if necessary. Also, to avoid deep nesting each node contains a ```:path``` which is directory-like (slash separated) absolute path of node in our tree. This
+way we may keep our tree definition flat and more readable.
+
+    (require '[mbuczko.category.tree :refer :all])
+
+    (def categories
+      [{:path "/"
+        :params {:status {:sticky true :value "available"}}}
+       {:path "/car"
+        :params {:condition {:sticky true :value "functioning"}
+                 :has-abs {:sticky true :version "standard"}}}
+       {:path "/car/Tarpan"
+        :params {:has-abs {:excluded true}}},
+       {:path "/car/Acura"
+        :params {:has-alarm {:sticky true :version "standard"}}}
+       {:path "/car/BMW"
+        :params {:has-xenons {:sticky true :version "extended"}}}
+       {:path "/car/BMW/Serie X"
+        :params {:has-xenons {:excluded true}}}
+       {:path "/car/BMW/Serie X/X30"
+        :params {:has-sunroof {:sticky true :version "extended"}
+                 :has-abs {:excluded true}}}])
+
+
+Having tree definition ready, let's fire some queries:
+
+    (with-tree (create-tree categories)
+        (lookup "/car/BMW/Serie X"))
+
+Result:
+
+    {:path "/car/BMW/Serie X",
+     :params {:status {:value "available"},
+              :condition {:value "functioning"},
+              :has-abs {:version "standard"}}}
+
+
+So we got ```Serie X``` with ```:status``` defined as sticky at the top of our tree and ```:condition```, ```:has-abs``` which were defined as sticky at the ```/car``` node.
+Note that we got no ```:has-xenons``` which were assigned to ```/car/BMW``` as sticky. That's because we simply excluded this property on ```/car/BMW/Serie X``` node (_Scenario 3_).
+But that also means, we should get it when asked for ```/car/BMW/Serie X/X30``` as the exclusion was no sticky. Let's check it out:
+
+    (with-tree (create-tree categories)
+        (lookup "/car/BMW/Serie X/X30"))
+
+and result:
+
+    {:path "/car/BMW/Serie X/X30",
+     :params {:status {:value "available"},
+              :condition {:value "functioning"},
+              :has-xenons {:version "extended"},
+              :has-sunroof {:version "extended"}}}
+
+Voila! Xenons came back, so stickness works perfectly - only exceptions marked by ```:excluded true``` have no sticky property assigned.
 
 ##LICENSE
 
