@@ -22,7 +22,7 @@ If we try to assign properies in the most naive may - one by one for each catego
 
 Let's visualize it as a _Scenario 1_:
 
-![scenario1](https://github.com/mbuczko/categorizer/blob/master/scenario1.png "scenario 1")
+![scenario1](https://github.com/mbuczko/categorizer/blob/master/docs/scenario1.png "scenario 1")
 
 We have a simplified tree of cars with 3 makes and BMW X30 is a sneaky one having ABS in a standard. Assigning ```:has-abs``` property was trivial, but one day your Pointy Haired Boss announces:
 
@@ -30,20 +30,20 @@ We have a simplified tree of cars with 3 makes and BMW X30 is a sneaky one havin
 
 Good luck with trying to assign properties by hand. This is where we switch to _Scenario 2_:
 
-![scenario2](https://github.com/mbuczko/categorizer/blob/master/scenario2.png "scenario 2")
+![scenario2](https://github.com/mbuczko/categorizer/blob/master/docs/scenario2.png "scenario 2")
 
 The idea behind is simple - if all our cars have ABS-es, instead of crazy assigning ```:has-abs``` separately for each make and models, let's assign it once for _car_ node and mark it as _inherited_, which would make it assigned for all the nodes below by default.
 In other words all the makes and models will _inherit_ property from their parent node and do not need explicit assignment.
 
 That's how our fantasy world look like. In fact Tarpans have no ABS-es (but hey, they still have some other nice stuff inside!). Surely, they're exception but it doesn't mean that we have to switch back to _Scenario 1_. Instead let's examine _Scenario 3_:
 
-![scenario3](https://github.com/mbuczko/categorizer/blob/master/scenario3.png "scenario 3")
+![scenario3](https://github.com/mbuczko/categorizer/blob/master/docs/scenario3.png "scenario 3")
 
 Yup, simple like this. We still keep inherited ```:has-abs``` at top but additionally we marked Tarpans as an exception which should have ```:has-abs``` excluded. This way we avoid _Scenario 1_ with separate assignments still having nice way to exclude property from certain nodes.
 
 Now, let's imagine for a moment that BMW is the make with no ABS-es under the hood (looking at some BMW drivers it's not as hard to imagine that). BMW has lot of series and models which would make us exclude property multiple times (if we followed _Scenario 3_). Fortunatelly, it could be simplfied again. Let's welcome _Scenario 4_ - the last one.
 
-![scenario4](https://github.com/mbuczko/categorizer/blob/master/scenario4.png "scenario 4")
+![scenario4](https://github.com/mbuczko/categorizer/blob/master/docs/scenario4.png "scenario 4")
 
 That's right - we're using inheritance again, this time to make exclusion easier. Instead of assigning exluded ```:has-abs```  to each BMW subnode, we may do it once (at BMW level) and mark exclusion as inherited. That means, all the subnodes have no ABS-es by default with no explicit exclusions made before.
 
@@ -115,6 +115,9 @@ and result:
               :has-sunroof {:version "extended"}}}
 
 Voila! Xenons came back, so stickness works perfectly - only exceptions marked by ```:excluded true``` have no sticky property assigned.
+
+Look for [other examples](https://github.com/mbuczko/categorizer/blob/master/docs/literate.html) if you want to dive into details.
+
 
 ##LICENSE
 
