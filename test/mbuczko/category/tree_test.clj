@@ -18,7 +18,7 @@
    {:path "/car/BMW/Serie X"
     :params {:has-xenons {:type "bool" :sticky true :excluded true}
              :has-eds {:type "bool"}}}
-   {:path "/car/BMW/Serie X/X30"
+   {:path "/car/BMW/Serie X/X3"
     :params {:has-sunroof {:type "bool"}
              :has-trailer {:type "bool" :excluded true}}}])
 
@@ -45,7 +45,7 @@
 
 (fact "gathers sticky parameters for given category"
       (with-tree (create-tree categories)
-        (let [params (:params (lookup "/car/BMW/Serie X/X30"))]
+        (let [params (:params (lookup "/car/BMW/Serie X/X3"))]
           (println params)
           (contains? params :has-sunroof) => true
           (contains? params :status) => true
@@ -65,6 +65,6 @@
 (fact "assigns correctly parameter with no sticky/excluded flags"
       (with-tree (create-tree categories)
         (let [params1 (:params (lookup "/car/BMW/Serie X"))
-              params2 (:params (lookup "/car/BMW/Serie X/X30"))]
+              params2 (:params (lookup "/car/BMW/Serie X/X3"))]
           (contains? params1 :has-eds) => true
           (contains? params2 :has-eds) => false)))

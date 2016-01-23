@@ -13,7 +13,7 @@ It's natural to visualize all categories together as a deeply nested tree. In ca
 
 for example:
 
-    car -> BMW -> Serie X -> X30
+    car -> BMW -> Serie X -> X3
 
 Alright, but having categories with no properties assigned is simply useless. Each category has its own set of properties which in case of cars decide why we prefer Tarpan over BMW ;)
 Properies may be exactly the same for several categories (eg. most of cars have an ABS today), may be unique for one category or be excluded from the other. This is where the scenarios mentioned earlier come onto scene.
@@ -24,7 +24,7 @@ Let's visualize it as a _Scenario 1_:
 
 ![scenario1](docs/scenario1.png "scenario 1")
 
-We have a simplified tree of cars with 3 makes and BMW X30 is a sneaky one having ABS in a standard. Assigning ```:has-abs``` property was trivial, but one day your Pointy Haired Boss announces:
+We have a simplified tree of cars with 3 makes and BMW X3 is a sneaky one having ABS in a standard. Assigning ```:has-abs``` property was trivial, but one day your Pointy Haired Boss announces:
 
 > _Guys, we have a problem. Acura, Tarpan and all 3000 of makes we store have ABS-es as well!_
 
@@ -81,7 +81,7 @@ way we may keep our tree definition flat and more readable.
         :params {:has-xenons {:sticky true :version "extended"}}}
        {:path "/car/BMW/Serie X"
         :params {:has-xenons {:excluded true}}}
-       {:path "/car/BMW/Serie X/X30"
+       {:path "/car/BMW/Serie X/X3"
         :params {:has-sunroof {:sticky true :version "extended"}
                  :has-abs {:excluded true}}}])
 
@@ -101,14 +101,14 @@ Result:
 
 So we got ```Serie X``` with ```:status``` defined as sticky at the top of our tree and ```:condition```, ```:has-abs``` which were defined as sticky at the ```/car``` node.
 Note that we got no ```:has-xenons``` which were assigned to ```/car/BMW``` as sticky. That's because we simply excluded this property on ```/car/BMW/Serie X``` node (_Scenario 3_).
-But that also means, we should get it when asked for ```/car/BMW/Serie X/X30``` as the exclusion was no sticky. Let's check it out:
+But that also means, we should get it when asked for ```/car/BMW/Serie X/X3``` as the exclusion was no sticky. Let's check it out:
 
     (with-tree (create-tree categories)
-        (lookup "/car/BMW/Serie X/X30"))
+        (lookup "/car/BMW/Serie X/X3"))
 
 and result:
 
-    {:path "/car/BMW/Serie X/X30",
+    {:path "/car/BMW/Serie X/X3",
      :params {:status {:value "available"},
               :condition {:value "functioning"},
               :has-xenons {:version "extended"},

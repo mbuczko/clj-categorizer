@@ -40,6 +40,28 @@
 (create-tree categories)
 
 ;; All queries have identical form: tree wrapped into ```with-tree``` macro is passed down as bound variable
-;; to ```lookup``` function traverses the tree looking for specified node and its parameters.
+;; to ```lookup``` function which traverses the tree looking for specified node and its parameters.
 (with-tree (create-tree categories)
   (lookup "/car"))
+
+;; Depending on sticky/excluded flags we should get a node (if found) together with combined parameters. Look at the ```has-alarm``` parameter. It's defined
+;; at the top of tree additionally marked as sticky, which means it should be inherited down the tree. Querying for "/car" shows that ```has-alarm``` indeed
+;; gets added to the list of calculated parameters.
+{:path "/car"
+ :params {:status {:values ["active" "inactive"]},
+          :has-alarm {},
+          :has-led {},
+          :has-abs {},
+          :has-gps {}}}
+
+;; Acura happens to have alarm missing in our tree (it's been explicite excluded).
+(with-tree (create-tree categories)
+  (lookup "/car/Acura"))
+
+;; Querying for "/car/Acura" should then return no ```has-alarm``` parameter.
+{:path "/car/Acura",
+ :params {:status {:values ["active" "inactive"]},
+          :has-led {},
+          :has-abs {},
+          :has-gps {},
+          :has-asr {}}}
