@@ -65,54 +65,65 @@ Easy peasy. The theory part is over :)
 Let's define our tree first. Each property (like ```:price```, ```:type``` or ```status```) is a simple map containing ```:sticky``` and/or ```:excluded``` flags if necessary. Also, to avoid deep nesting each node contains a ```:path``` which is directory-like (slash separated) absolute path of node in our tree. This
 way we may keep our tree definition flat and more readable.
 
+``` clojure
     (require '[mbuczko.category.tree :refer :all])
 
-    (def categories
-      [{:path "/"
-        :params {:status {:sticky true :value "available"}}}
-       {:path "/car"
-        :params {:condition {:sticky true :value "functioning"}
-                 :has-abs {:sticky true :version "standard"}}}
-       {:path "/car/Tarpan"
-        :params {:has-abs {:excluded true}}},
-       {:path "/car/Acura"
-        :params {:has-alarm {:sticky true :version "standard"}}}
-       {:path "/car/BMW"
-        :params {:has-xenons {:sticky true :version "extended"}}}
-       {:path "/car/BMW/Serie X"
-        :params {:has-xenons {:excluded true}}}
-       {:path "/car/BMW/Serie X/X3"
-        :params {:has-sunroof {:sticky true :version "extended"}
-                 :has-abs {:excluded true}}}])
-
+(def categories
+  [{:path "/"
+    :params {:status {:sticky true :value "available"}}}
+   {:path "/car"
+    :params {:condition {:sticky true :value "functioning"}
+             :has-abs {:sticky true :version "standard"}}}
+   {:path "/car/Tarpan"
+    :params {:has-abs {:excluded true}}},
+   {:path "/car/Acura"
+    :params {:has-alarm {:sticky true :version "standard"}}}
+   {:path "/car/BMW"
+    :params {:has-xenons {:sticky true :version "extended"}}}
+   {:path "/car/BMW/Serie X"
+    :params {:has-xenons {:excluded true}}}
+   {:path "/car/BMW/Serie X/X3"
+    :params {:has-sunroof {:sticky true :version "extended"}
+             :has-abs {:excluded true}}}])
+```
 
 Having tree definition ready, let's fire some queries:
 
-    (with-tree (create-tree categories)
-        (lookup "/car/BMW/Serie X"))
+``` clojure
+(with-tree (create-tree categories)
+    (lookup "/car/BMW/Serie X"))
+```
 
 Result:
 
-    {:path "/car/BMW/Serie X",
-     :params {:status {:value "available"},
-              :condition {:value "functioning"},
-              :has-abs {:version "standard"}}}
+``` clojure
+{:path "/car/BMW/Serie X",
+ :params {:status {:value "available"},
+          :condition {:value "functioning"},
+          :has-abs {:version "standard"}}}
+```
+
 
 
 So we got ```Serie X``` with ```:status``` defined as sticky at the top of our tree and ```:condition```, ```:has-abs``` which were defined as sticky at the ```/car``` node.
 Note that we got no ```:has-xenons``` which were assigned to ```/car/BMW``` as sticky. That's because we simply excluded this property on ```/car/BMW/Serie X``` node (_Scenario 3_).
 But that also means, we should get it when asked for ```/car/BMW/Serie X/X3``` as the exclusion was no sticky. Let's check it out:
 
-    (with-tree (create-tree categories)
-        (lookup "/car/BMW/Serie X/X3"))
+``` clojure
+(with-tree (create-tree categories)
+    (lookup "/car/BMW/Serie X/X3"))
+```
+
 
 and result:
 
-    {:path "/car/BMW/Serie X/X3",
-     :params {:status {:value "available"},
-              :condition {:value "functioning"},
-              :has-xenons {:version "extended"},
-              :has-sunroof {:version "extended"}}}
+``` clojure
+{:path "/car/BMW/Serie X/X3",
+ :params {:status {:value "available"},
+          :condition {:value "functioning"},
+          :has-xenons {:version "extended"},
+          :has-sunroof {:version "extended"}}}
+```
 
 Voila! Xenons came back, so stickness works perfectly - only exceptions marked by ```:excluded true``` have no sticky property assigned.
 
