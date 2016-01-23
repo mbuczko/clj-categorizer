@@ -66,7 +66,7 @@ Let's define our tree first. Each property (like ```:price```, ```:type``` or ``
 way we may keep our tree definition flat and more readable.
 
 ``` clojure
-    (require '[mbuczko.category.tree :refer :all])
+(require '[mbuczko.category.tree :refer :all])
 
 (def categories
   [{:path "/"
