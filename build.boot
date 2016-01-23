@@ -32,7 +32,7 @@
  midje {:test-paths #{"test"}}
  pom   {:project 'mbuczko/categorizer
         :version +version+
-        :description "Scores incoming data based on predefined matchers"
+        :description "Category tree management"
         :url "https://github.com/mbuczko/categorizer"
         :scm {:url "https://github.com/mbuczko/categorizer"}
         :license {"Eclipse Public License" "http://www.eclipse.org/legal/epl-v10.html"}})
