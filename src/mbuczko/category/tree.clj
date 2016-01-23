@@ -26,7 +26,7 @@
   "Looks for a node described by given path among direct children of loc."
   [loc path]
   (loop [node (zip/down loc)]
-    (if-not (nil? node)
+    (if node
       (if (= path (:path (zip/node node))) node (recur (zip/right node))))))
 
 (defn- create-child-node
