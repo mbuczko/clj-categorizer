@@ -2872,56 +2872,95 @@ net.brehaut.ClojureTools = (function (SH) {
    [mbuczko.category.tree]))</pre></td></tr><tr><td class="docs"><p>Category tree is a crucial structure required by all functions to work as expected.
 To make things easy enough categorizer exposes single function <code>create-tree</code> which
 produces category tree based on flat list of maps. Each map should consist of at least 2
-keys: <code>path</code> and <code>params</code>. First one describes a path in a way that operating systems
+keys: <code>path</code> and <code>props</code>. First one describes a path in a way that operating systems
 describe directories, ie. by nodes separated with a slash. There is also a "root" path (single slash)
 which all subsequent nodes derive from.</p>
 
-<p>Second key - <code>params</code> describes map of properties assigned to given node, eg. <code>{:price {:required true :sticky true}}</code>
+<p>Second key - <code>props</code> describes map of properties assigned to given node, eg. <code>{:price {:required true :sticky true}}</code>
 Each property may contain one of 2 special flags: <code>sticky</code> and/or <code>excluded</code> which decide whether property gets inherited/excluded
 down the tree.</p>
 </td><td class="codes"><pre class="brush: clojure">(def categories
   [{:path &quot;/&quot;
-    :params {:has-alarm {:sticky true}}}
+    :props {:has-alarm {:sticky true}}}
    {:path &quot;/car&quot;
-    :params {:status  {:sticky true :values [&quot;active&quot; &quot;inactive&quot;]}
-             :has-led {:sticky true}
-             :has-abs {:sticky true}
-             :has-gps {:sticky true}}}
+    :props {:status  {:sticky true :values [&quot;active&quot; &quot;inactive&quot;]}
+            :has-led {:sticky true}
+            :has-abs {:sticky true}
+            :has-gps {:sticky true}}}
    {:path &quot;/car/Tarpan&quot;
-    :params {:has-abs {:excluded true}
-             :has-gps {:excluded true}}},
+    :props {:has-abs {:excluded true}
+            :has-gps {:excluded true}}},
    {:path &quot;/car/Acura&quot;
-    :params {:has-asr   {:sticky true}
-             :has-alarm {:excluded true}}}
+    :props {:has-asr   {:sticky true}
+            :has-alarm {:excluded true}}}
    {:path &quot;/car/BMW&quot;
-    :params {:has-xenons {:sticky true}}}
+    :props {:has-xenons {:sticky true}}}
    {:path &quot;/car/BMW/Serie X&quot;
-    :params {:has-xenons {:sticky true :excluded true}
-             :has-airbag {:is-standard true}}}
+    :props {:has-xenons {:sticky true :excluded true}
+            :has-airbag {:is-standard true}}}
    {:path &quot;/car/BMW/Serie X/X3&quot;
-    :params {:has-sunroof {:is-standard true}
-             :has-trailer {:excluded true}}}])</pre></td></tr><tr><td class="docs"><p>Creating a tree is trivial - <code>create-tree</code> function takes care of details. This function expects
+    :props {:has-sunroof {:is-standard true}
+            :has-trailer {:excluded true}}}])</pre></td></tr><tr><td class="docs"><p>Creating a tree is trivial - <code>create-tree</code> function takes care of details. This function expects
 a structure as the one prepared earlier and returns a tree which can be used in further queries.</p>
-</td><td class="codes"><pre class="brush: clojure">(create-tree categories)</pre></td></tr><tr><td class="docs"><p>All queries have identical form: tree wrapped into <code>with-tree</code> macro is passed down as bound variable
-to <code>lookup</code> function which traverses the tree looking for specified node and its parameters.</p>
+</td><td class="codes"><pre class="brush: clojure">(create-tree categories)</pre></td></tr><tr><td class="docs"><p>Internally each node of category tree is represented by <code>Category</code> type which encapsulates 3 important things:</p>
+
+<ul>
+<li>category path described by <code>:path</code> value</li>
+<li>map of properties described by <code>:props</code></li>
+<li>vector of subcategories described by <code>:subcategories</code></li>
+</ul>
+</td><td class="codes"><pre class="brush: clojure">[Category{:path &quot;/&quot;,
+          :props {:has-alarm {:sticky true}},
+          :subcategories [Category{:path &quot;/car&quot;,
+                                   :props {:status {:sticky true, :values [&quot;active&quot; &quot;inactive&quot;]},
+                                           :has-led {:sticky true},
+                                           :has-abs {:sticky true},
+                                           :has-gps {:sticky true}},
+                                   :subcategories [Category{:path &quot;/car/Tarpan&quot;,
+                                                            :props {:has-abs {:excluded true}, :has-gps {:excluded true}},
+                                                            :subcategories []}
+                                                   Category{:path &quot;/car/Acura&quot;,
+                                                            :props {:has-asr {:sticky true}, :has-alarm {:excluded true}},
+                                                            :subcategories []}
+                                                   Category{:path &quot;/car/BMW&quot;,
+                                                            :props {:has-xenons {:sticky true}},
+                                                            :subcategories [Category{:path &quot;/car/BMW/Serie X&quot;,
+                                                                                     :props {:has-xenons {:sticky true, :excluded true}, :has-airbag {:is-standard true}},
+                                                                                     :subcategories [Category{:path &quot;/car/BMW/Serie X/X3&quot;,
+                                                                                                              :props {:has-sunroof {:is-standard true}, :has-trailer {:excluded true}},
+                                                                                                              :subcategories []}]}]}]}]}]</pre></td></tr><tr><td class="docs"><p>All queries have identical form: tree wrapped into <code>with-tree</code> macro is passed down as bound variable
+to <code>lookup</code> function which traverses the tree looking for specified node and its properties.</p>
 </td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
-  (lookup &quot;/car&quot;))</pre></td></tr><tr><td class="docs"><p>Depending on sticky/excluded flags we should get a node (if found) together with combined parameters. Look at the <code>has-alarm</code> parameter. It's defined
+  (lookup &quot;/car&quot;))</pre></td></tr><tr><td class="docs"><p>Depending on sticky/excluded flags we should get a node (if found) together with combined properties. Look at the <code>has-alarm</code>property. It's defined
 at the top of tree additionally marked as sticky, which means it should be inherited down the tree. Querying for "/car" shows that <code>has-alarm</code> indeed
-gets added to the list of calculated parameters.</p>
+gets added to the list of calculated properties.</p>
 </td><td class="codes"><pre class="brush: clojure">{:path &quot;/car&quot;
- :params {:status {:values [&quot;active&quot; &quot;inactive&quot;]},
-          :has-alarm {},
-          :has-led {},
-          :has-abs {},
-          :has-gps {}}}</pre></td></tr><tr><td class="docs"><p>Acura happens to have alarm missing in our tree (it's been explicite excluded).</p>
+ :props {:status {:values [&quot;active&quot; &quot;inactive&quot;]},
+         :has-alarm {},
+         :has-led {},
+         :has-abs {},
+         :has-gps {}}}</pre></td></tr><tr><td class="docs"><p>Acura happens to have alarm missing in our tree (it's been explicite excluded).</p>
 </td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
-  (lookup &quot;/car/Acura&quot;))</pre></td></tr><tr><td class="docs"><p>Querying for "/car/Acura" should then return no <code>has-alarm</code> parameter.</p>
+  (lookup &quot;/car/Acura&quot;))</pre></td></tr><tr><td class="docs"><p>Querying for "/car/Acura" should then return no <code>has-alarm</code> property.</p>
 </td><td class="codes"><pre class="brush: clojure">{:path &quot;/car/Acura&quot;,
- :params {:status {:values [&quot;active&quot; &quot;inactive&quot;]},
-          :has-led {},
-          :has-abs {},
-          :has-gps {},
-          :has-asr {}}}</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_categorizer.examples.tree">categorizer.examples.tree</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+ :props {:status {:values [&quot;active&quot; &quot;inactive&quot;]},
+         :has-led {},
+         :has-abs {},
+         :has-gps {},
+         :has-asr {}}}</pre></td></tr><tr><td class="docs"><p>Last but not least, there are also two other functions exposed which may become helpful when doing manipulation on tree:</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p><code>create-category</code> allows dynamically add new category to existing tree. It takes <code>Category</code> instance as parameter and returns in turn modified category tree.</p>
+</td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
+  (create-category (Category. &quot;/car/Fiat/126p&quot; {:coolness 100} [])))</pre></td></tr><tr><td class="docs"><p><code>remove-at</code> removes category at given path with all its subcategories.</p>
+</td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
+  (remove-at &quot;/car/Fiat&quot;))</pre></td></tr><tr><td class="docs"><p>Finally, to make tree persistent it's pretty enough to extend <code>Category</code> type with <code>Persistent</code> protocol and
+implement 2 functions: <code>store!</code> and <code>delete!</code>. In-memory implementation of trivial storage may look like this.</p>
+</td><td class="codes"><pre class="brush: clojure">(def storage (atom {}))
+(extend-type Category
+  Persistent
+  (store! [category]
+    (swap! storage assoc (category-&gt;key category) (:props category)))
+  (delete! [category]
+    (swap! storage dissoc (category-&gt;key category))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_categorizer.examples.tree">categorizer.examples.tree</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
 SyntaxHighlighter.all();
 
 // hackity hack
