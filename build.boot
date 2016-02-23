@@ -7,15 +7,15 @@
                  [zilti/boot-midje "0.2.1-SNAPSHOT" :scope "test"]
                  [midje "1.8.3" :scope "test"]
                  [cheshire "5.5.0"]
-                 [michaelblume/marginalia "0.9.0" :scope "test" :excludes [org.clojure/tools.namespace]]
-])
+                 [com.taoensso/carmine "2.12.2"]
+                 [michaelblume/marginalia "0.9.0" :scope "test" :excludes [org.clojure/tools.namespace]]])
 
 (require '[adzerk.bootlaces :refer :all]
          '[zilti.boot-midje :refer [midje]]
          '[marginalia.html  :refer [*resources*]]
          '[marginalia.core  :as marg])
 
-(def +version+ "0.2.0")
+(def +version+ "0.3.0")
 
 (bootlaces! +version+)
 

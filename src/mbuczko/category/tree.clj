@@ -1,21 +1,31 @@
 (ns mbuczko.category.tree
   (:require [cheshire.core         :as json]
+            [clojure.zip           :as zip]
             [clojure.tools.logging :as log]
-            [clojure.zip           :as zip]))
+            [taoensso.carmine      :as r :refer [wcar]]))
 
 (defprotocol TreeNode
   (branch? [node] "Is it possible for node to have children?")
   (node-children [node] "Returns children of this node.")
   (make-node [node children] "Makes new node from existing node and new children."))
 
-(defrecord Category [path params subcategories]
+(defprotocol Persistent
+  (store! [category] "Dumps category into persistent storage.")
+  (delete! [category] "Deletes category from tree and persistent storage"))
+
+(defrecord Category [path props subcategories]
   TreeNode
   (branch? [node] true)
   (node-children [node] (:subcategories node))
-  (make-node [node children] (Category. (:path node) (:params node) (vec children))))
+  (make-node [node children] (Category. (:path node) (:props node) (vec children))))
 
-(def ^:dynamic *categories-tree*
-  (atom (map->Category {:path "/" :params {} :subcategories []})))
+(def ^:dynamic *categories-tree* nil)
+
+(defmacro with-tree
+  "Changes default binding to categories tree"
+  [tree & body]
+  `(binding [*categories-tree* ~tree]
+     ~@body))
 
 (defn- tree-zip
   "Makes a zipper out of a tree."
@@ -26,7 +36,7 @@
   "Looks for a node described by given path among direct children of loc."
   [loc path]
   (loop [node (zip/down loc)]
-    (if node
+    (when node
       (if (= path (:path (zip/node node))) node (recur (zip/right node))))))
 
 (defn- create-child-node
@@ -59,12 +69,12 @@
   (map zip/node (take-while (complement nil?) (iterate zip/up loc))))
 
 (defn sticky?
-  "Is parameter inherited down the category tree?"
+  "Is property inherited down the category tree?"
   [prop]
   (:sticky prop))
 
 (defn excluded?
-  "Is parameter inherited down the category tree?"
+  "Is property inherited down the category tree?"
   [prop]
   (:excluded prop))
 
@@ -84,59 +94,69 @@
   [m]
   (reduce-kv #(assoc %1 %2 (assoc %3 :sticky true)) {} m))
 
-(defn- collect-params
-  "Calculates list of parameters for given loc in category tree."
+(defn collect-props
+  "Calculates list of properties for given loc in category tree."
   [loc]
-  (let [params (-> (mapv :params (trail-at loc))
+  (let [props (-> (mapv :props (trail-at loc))
                    (update-in [0] stickify-props))]
-    (reduce #(reduce sticky-merge %1 %2) {} (rseq params))))
+    (reduce #(reduce sticky-merge %1 %2) {} (rseq props))))
 
 (defn lookup
   "Traverses a tree looking for a category of given path and
-  recalculates params to reflect parameters inheritance."
+  recalculates props to reflect properties inheritance."
   [path]
-  (let [tree @*categories-tree*]
-    (when-let [node (find-or-create-node (tree-zip tree) path false)]
-      (-> (zip/node node)
-          (select-keys [:path])
-          (assoc :params (collect-params node))))))
+  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
+    (-> (zip/node loc)
+        (select-keys [:path])
+        (assoc :props (collect-props loc)))))
+
+(defn remove-at
+  "Removes category at given path. Returns altered category tree."
+  [path]
+  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
+    (let [node (zip/node loc)]
+
+      ;; remove persistently if necessary
+      (if (satisfies? Persistent node)
+        (delete! node))
+
+      (-> loc
+          (zip/remove)
+          (zip/root)))))
 
 (defn create-category
-  "Adds new category described by path. Returns altred tree."
-  [tree path params]
-  (-> tree
-      (tree-zip)
-      (find-or-create-node path true)
-      (zip/edit assoc :params params)
-      (zip/root)))
+  "Adds new category. Returns altred tree."
+  [category]
+  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) (:path category) true)]
+    (let [edited (zip/edit loc assoc :props (:props category))]
+
+      ;; make category persistent if necessary
+      (if (satisfies? Persistent category)
+        (store! (zip/node edited)))
+
+      (zip/root edited))))
 
 (defn create-tree
   "Creates category tree basing on provided collection of category paths."
   [coll]
-  (let [root (tree-zip (Category. "/" {} []))]
-    (loop [node (zip/node root) [c & rest] coll]
-      (if c (recur (create-category node (:path c) (:params c)) rest) node))))
+  (loop [[c & rest] coll node (Category. "/" {} [])]
+    (if-not c node (recur rest (with-tree node
+                                 (create-category (map->Category c)))))))
 
 (defn from-file
   "Loads tree definition from external json-formatted file.
   Definition consists of an array of following map:
 
-  {path: 'category', params: {'has_xenons': {type: 'bool', sticky: true}}}
+  {path: 'category', props: {'has_xenons': {type: 'bool', sticky: true}}}
 
   where:
   * category is path-like string category/subcategory/subsubcategory/...
-  * params is map of category specific parameters.
+  * props is map of category specific properties.
 
-  Each parameter is described by type (eg. 'bool') and sticky/excluded flags
+  Each property is described by type (eg. 'bool') and sticky/excluded flags
   used to perform inheritance calculations."
   ([path]
    (when-let [reader (clojure.java.io/reader path)]
      (log/info "Loading categories from" path)
      (when-let [tree (create-tree (json/parse-stream reader true))]
        (reset! *categories-tree* tree)))))
-
-(defmacro with-tree
-  "Changes default binding to categories tree"
-  [tree & body]
-  `(binding [*categories-tree* (atom ~tree)]
-     ~@body))
