@@ -1,14 +1,22 @@
 (ns mbuczko.category.tree-test
   (:require [mbuczko.category.tree :refer :all]
-            [midje.sweet :refer :all]))
+            [midje.sweet :refer :all])
+  (:import mbuczko.category.tree.Category))
+
+;; mocking persistent storage
+(def storage (atom {}))
+
+;; extending Category to make it persistent
+(extend-type Category
+  PersistentCategory
+  (store! [category]
+    (swap! storage assoc (str "category" (.replaceAll (:path category) "/" ":")) (:params category))))
 
 (def categories
-  [{:path "/"
-    :params {:price {:type "floating" :sticky true}}}
-   {:path "/car"
-    :params {:status {:type "option" :rules "required" :sticky true :values ["active" "inactive"]}
-             :condition {:type "option" :rules "required" :sticky true :values ["broken" "functioning" "unknown"]}
-             :has-trailer {:type "bool" :sticky true}}}
+  [{:path "/" :params {:price {:type "floating" :sticky true}}}
+   {:path "/car" :params {:status {:type "option" :rules "required" :sticky true :values ["active" "inactive"]}
+                          :condition {:type "option" :rules "required" :sticky true :values ["broken" "functioning" "unknown"]}
+                          :has-trailer {:type "bool" :sticky true}}}
    {:path "/car/Tarpan"
     :params {:has-abs {:type "bool" :sticky true}}},
    {:path "/car/Acura"
@@ -21,6 +29,7 @@
    {:path "/car/BMW/Serie X/X3"
     :params {:has-sunroof {:type "bool"}
              :has-trailer {:type "bool" :excluded true}}}])
+
 
 (fact "creates empty category tree with correct root node"
       (let [tree (create-tree [])]
@@ -46,7 +55,6 @@
 (fact "gathers sticky parameters for given category"
       (with-tree (create-tree categories)
         (let [params (:params (lookup "/car/BMW/Serie X/X3"))]
-          (println params)
           (contains? params :has-sunroof) => true
           (contains? params :status) => true
           (contains? params :condition) => true
@@ -68,3 +76,9 @@
               params2 (:params (lookup "/car/BMW/Serie X/X3"))]
           (contains? params1 :has-eds) => true
           (contains? params2 :has-eds) => false)))
+
+(fact "newly created tree should be persistent"
+      (with-tree (create-tree categories)
+        (let [bmw (get @storage "category:car:BMW:Serie X")]
+          bmw => truthy
+          (:has-xenons bmw) => truthy)))
