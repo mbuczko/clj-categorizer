@@ -13,11 +13,11 @@
   (store! [category] "Dumps category into persistent storage.")
   (delete! [category] "Deletes category from tree and persistent storage"))
 
-(defrecord Category [path params subcategories]
+(defrecord Category [path props subcategories]
   TreeNode
   (branch? [node] true)
   (node-children [node] (:subcategories node))
-  (make-node [node children] (Category. (:path node) (:params node) (vec children))))
+  (make-node [node children] (Category. (:path node) (:props node) (vec children))))
 
 (def ^:dynamic *categories-tree* nil)
 
@@ -69,12 +69,12 @@
   (map zip/node (take-while (complement nil?) (iterate zip/up loc))))
 
 (defn sticky?
-  "Is parameter inherited down the category tree?"
+  "Is property inherited down the category tree?"
   [prop]
   (:sticky prop))
 
 (defn excluded?
-  "Is parameter inherited down the category tree?"
+  "Is property inherited down the category tree?"
   [prop]
   (:excluded prop))
 
@@ -94,21 +94,21 @@
   [m]
   (reduce-kv #(assoc %1 %2 (assoc %3 :sticky true)) {} m))
 
-(defn collect-params
-  "Calculates list of parameters for given loc in category tree."
+(defn collect-props
+  "Calculates list of properties for given loc in category tree."
   [loc]
-  (let [params (-> (mapv :params (trail-at loc))
+  (let [props (-> (mapv :props (trail-at loc))
                    (update-in [0] stickify-props))]
-    (reduce #(reduce sticky-merge %1 %2) {} (rseq params))))
+    (reduce #(reduce sticky-merge %1 %2) {} (rseq props))))
 
 (defn lookup
   "Traverses a tree looking for a category of given path and
-  recalculates params to reflect parameters inheritance."
+  recalculates props to reflect properties inheritance."
   [path]
   (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
     (-> (zip/node loc)
         (select-keys [:path])
-        (assoc :params (collect-params loc)))))
+        (assoc :props (collect-props loc)))))
 
 (defn remove-at
   "Removes category at given path. Returns altered category tree."
@@ -128,7 +128,7 @@
   "Adds new category. Returns altred tree."
   [category]
   (when-let [loc (find-or-create-node (tree-zip *categories-tree*) (:path category) true)]
-    (let [edited (zip/edit loc assoc :params (:params category))]
+    (let [edited (zip/edit loc assoc :props (:props category))]
 
       ;; make category persistent if necessary
       (if (satisfies? PersistentCategory category)
@@ -148,13 +148,13 @@
   "Loads tree definition from external json-formatted file.
   Definition consists of an array of following map:
 
-  {path: 'category', params: {'has_xenons': {type: 'bool', sticky: true}}}
+  {path: 'category', props: {'has_xenons': {type: 'bool', sticky: true}}}
 
   where:
   * category is path-like string category/subcategory/subsubcategory/...
-  * params is map of category specific parameters.
+  * props is map of category specific properties.
 
-  Each parameter is described by type (eg. 'bool') and sticky/excluded flags
+  Each property is described by type (eg. 'bool') and sticky/excluded flags
   used to perform inheritance calculations."
   ([path]
    (when-let [reader (clojure.java.io/reader path)]

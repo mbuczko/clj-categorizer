@@ -12,20 +12,20 @@
 (extend-type Category
   PersistentCategory
   (store! [category]
-    (swap! storage assoc (category->key category) (:params category)))
+    (swap! storage assoc (category->key category) (:props category)))
   (delete! [category]
     (swap! storage dissoc (category->key category))))
 
 (def categories
-  [{:path "/"    :params {:price {:sticky true}}}
-   {:path "/car" :params {:status {:rules "required" :sticky true :values ["active" "inactive"]}
+  [{:path "/"    :props {:price {:sticky true}}}
+   {:path "/car" :props {:status {:rules "required" :sticky true :values ["active" "inactive"]}
                           :condition {:rules "required" :sticky true :values ["broken" "functioning" "unknown"]}
                           :has-trailer {:sticky true}}}
-   {:path "/car/Tarpan" :params {:has-abs {:sticky true}}},
-   {:path "/car/Acura"  :params {:has-abs {:sticky true}}}
-   {:path "/car/BMW"    :params {:has-xenons {:sticky true}}}
-   {:path "/car/BMW/Serie X"    :params {:has-xenons {:sticky true :excluded true} :has-eds {}}}
-   {:path "/car/BMW/Serie X/X3" :params {:has-sunroof {} :has-trailer {:excluded true}}}])
+   {:path "/car/Tarpan" :props {:has-abs {:sticky true}}},
+   {:path "/car/Acura"  :props {:has-abs {:sticky true}}}
+   {:path "/car/BMW"    :props {:has-xenons {:sticky true}}}
+   {:path "/car/BMW/Serie X"    :props {:has-xenons {:sticky true :excluded true} :has-eds {}}}
+   {:path "/car/BMW/Serie X/X3" :props {:has-sunroof {} :has-trailer {:excluded true}}}])
 
 (defn- category->key [category]
   (str "category" (.replaceAll (:path category) "/" ":")))
@@ -54,30 +54,30 @@
         (let [node (lookup "/car/BMW/Serie XXX")]
           node => nil)))
 
-(fact "gathers sticky parameters for given category"
+(fact "gathers sticky properties for given category"
       (with-tree (create-tree categories)
-        (let [params (:params (lookup "/car/BMW/Serie X/X3"))]
-          (contains? params :has-sunroof) => true
-          (contains? params :status) => true
-          (contains? params :condition) => true
-          (contains? params :price) => true)))
+        (let [props (:props (lookup "/car/BMW/Serie X/X3"))]
+          (contains? props :has-sunroof) => true
+          (contains? props :status) => true
+          (contains? props :condition) => true
+          (contains? props :price) => true)))
 
-(fact "excludes parameters marked as excluded"
+(fact "excludes properties marked as excluded"
       (with-tree (create-tree categories)
-        (let [params (:params (lookup "/car/BMW/Serie X"))]
-          (contains? params :has-xenons) => false)))
+        (let [props (:props (lookup "/car/BMW/Serie X"))]
+          (contains? props :has-xenons) => false)))
 
-(fact "assigns correctly sticky parameter when creating category tree"
+(fact "assigns correctly sticky properties when creating category tree"
       (with-tree (create-tree categories)
-        (let [params (:params (lookup "/car/Acura"))]
-          (contains? params :has-abs) => true)))
+        (let [props (:props (lookup "/car/Acura"))]
+          (contains? props :has-abs) => true)))
 
-(fact "assigns correctly parameter with no sticky/excluded flags"
+(fact "assigns correctly properties with no sticky/excluded flags"
       (with-tree (create-tree categories)
-        (let [params1 (:params (lookup "/car/BMW/Serie X"))
-              params2 (:params (lookup "/car/BMW/Serie X/X3"))]
-          (contains? params1 :has-eds) => true
-          (contains? params2 :has-eds) => false)))
+        (let [prop1 (:props (lookup "/car/BMW/Serie X"))
+              prop2 (:props (lookup "/car/BMW/Serie X/X3"))]
+          (contains? prop1 :has-eds) => true
+          (contains? prop2 :has-eds) => false)))
 
 (fact "newly created tree should be persistent"
       (with-tree (create-tree categories)
