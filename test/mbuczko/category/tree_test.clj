@@ -3,6 +3,8 @@
             [midje.sweet :refer :all])
   (:import mbuczko.category.tree.Category))
 
+(declare category->key)
+
 ;; mocking persistent storage
 (def storage (atom {}))
 
@@ -10,26 +12,26 @@
 (extend-type Category
   PersistentCategory
   (store! [category]
-    (swap! storage assoc (str "category" (.replaceAll (:path category) "/" ":")) (:params category))))
+    (swap! storage assoc (category->key category) (:params category)))
+  (delete! [category]
+    (swap! storage dissoc (category->key category))))
 
 (def categories
-  [{:path "/" :params {:price {:type "floating" :sticky true}}}
-   {:path "/car" :params {:status {:type "option" :rules "required" :sticky true :values ["active" "inactive"]}
-                          :condition {:type "option" :rules "required" :sticky true :values ["broken" "functioning" "unknown"]}
-                          :has-trailer {:type "bool" :sticky true}}}
-   {:path "/car/Tarpan"
-    :params {:has-abs {:type "bool" :sticky true}}},
-   {:path "/car/Acura"
-    :params {:has-abs {:type "bool" :sticky true}}}
-   {:path "/car/BMW"
-    :params {:has-xenons {:type "bool" :sticky true}}}
-   {:path "/car/BMW/Serie X"
-    :params {:has-xenons {:type "bool" :sticky true :excluded true}
-             :has-eds {:type "bool"}}}
-   {:path "/car/BMW/Serie X/X3"
-    :params {:has-sunroof {:type "bool"}
-             :has-trailer {:type "bool" :excluded true}}}])
+  [{:path "/"    :params {:price {:sticky true}}}
+   {:path "/car" :params {:status {:rules "required" :sticky true :values ["active" "inactive"]}
+                          :condition {:rules "required" :sticky true :values ["broken" "functioning" "unknown"]}
+                          :has-trailer {:sticky true}}}
+   {:path "/car/Tarpan" :params {:has-abs {:sticky true}}},
+   {:path "/car/Acura"  :params {:has-abs {:sticky true}}}
+   {:path "/car/BMW"    :params {:has-xenons {:sticky true}}}
+   {:path "/car/BMW/Serie X"    :params {:has-xenons {:sticky true :excluded true} :has-eds {}}}
+   {:path "/car/BMW/Serie X/X3" :params {:has-sunroof {} :has-trailer {:excluded true}}}])
 
+(defn- category->key [category]
+  (str "category" (.replaceAll (:path category) "/" ":")))
+
+(defn- get-at [path]
+  (get @storage path))
 
 (fact "creates empty category tree with correct root node"
       (let [tree (create-tree [])]
@@ -79,6 +81,15 @@
 
 (fact "newly created tree should be persistent"
       (with-tree (create-tree categories)
-        (let [bmw (get @storage "category:car:BMW:Serie X")]
-          bmw => truthy
+        (let [bmw (get-at "category:car:BMW:Serie X")]
           (:has-xenons bmw) => truthy)))
+
+(fact "removed node should be persistently deleted"
+      (with-tree (create-tree categories)
+
+        (lookup "/car/BMW/Serie X") => truthy
+        (get-at "category:car:BMW:Serie X") => truthy
+
+        (with-tree (remove-at "/car/BMW/Serie X")
+          (lookup "/car/BMW/Serie X") => falsey
+          (get-at "category:car:BMW:Serie X") => falsey)))

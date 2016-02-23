@@ -10,7 +10,8 @@
   (make-node [node children] "Makes new node from existing node and new children."))
 
 (defprotocol PersistentCategory
-  (store! [category] "Dumps category into persistent storage."))
+  (store! [category] "Dumps category into persistent storage.")
+  (delete! [category] "Deletes category from tree and persistent storage"))
 
 (defrecord Category [path params subcategories]
   TreeNode
@@ -104,30 +105,43 @@
   "Traverses a tree looking for a category of given path and
   recalculates params to reflect parameters inheritance."
   [path]
-  (let [tree *categories-tree*]
-    (when-let [node (find-or-create-node (tree-zip tree) path false)]
-      (-> (zip/node node)
-          (select-keys [:path])
-          (assoc :params (collect-params node))))))
+  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
+    (-> (zip/node loc)
+        (select-keys [:path])
+        (assoc :params (collect-params loc)))))
+
+(defn remove-at
+  "Removes category at given path. Returns altered category tree."
+  [path]
+  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
+    (let [node (zip/node loc)]
+
+      ;; remove persistently if necessary
+      (if (satisfies? PersistentCategory node)
+        (delete! node))
+
+      (-> loc
+          (zip/remove)
+          (zip/root)))))
 
 (defn create-category
   "Adds new category. Returns altred tree."
   [category]
-  (when-let [node (find-or-create-node *categories-tree* (:path category) true)]
-    (let [loc (zip/edit node assoc :params (:params category))]
+  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) (:path category) true)]
+    (let [edited (zip/edit loc assoc :params (:params category))]
 
       ;; make category persistent if necessary
       (if (satisfies? PersistentCategory category)
-        (store! (zip/node loc)))
+        (store! (zip/node edited)))
 
-      (zip/root loc))))
+      (zip/root edited))))
 
 
 (defn create-tree
   "Creates category tree basing on provided collection of category paths."
   [coll]
   (loop [[c & rest] coll node (Category. "/" {} [])]
-    (if-not c node (recur rest (with-tree (tree-zip node)
+    (if-not c node (recur rest (with-tree node
                                  (create-category (map->Category c)))))))
 
 (defn from-file
