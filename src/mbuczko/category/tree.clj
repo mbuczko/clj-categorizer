@@ -9,7 +9,7 @@
   (node-children [node] "Returns children of this node.")
   (make-node [node children] "Makes new node from existing node and new children."))
 
-(defprotocol PersistentCategory
+(defprotocol Persistent
   (store! [category] "Dumps category into persistent storage.")
   (delete! [category] "Deletes category from tree and persistent storage"))
 
@@ -117,7 +117,7 @@
     (let [node (zip/node loc)]
 
       ;; remove persistently if necessary
-      (if (satisfies? PersistentCategory node)
+      (if (satisfies? Persistent node)
         (delete! node))
 
       (-> loc
@@ -131,11 +131,10 @@
     (let [edited (zip/edit loc assoc :props (:props category))]
 
       ;; make category persistent if necessary
-      (if (satisfies? PersistentCategory category)
+      (if (satisfies? Persistent category)
         (store! (zip/node edited)))
 
       (zip/root edited))))
-
 
 (defn create-tree
   "Creates category tree basing on provided collection of category paths."

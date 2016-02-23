@@ -10,7 +10,7 @@
 
 ;; extending Category to make it persistent
 (extend-type Category
-  PersistentCategory
+  Persistent
   (store! [category]
     (swap! storage assoc (category->key category) (:props category)))
   (delete! [category]
