@@ -51,7 +51,7 @@
   When node was not found and create? is true whole the subtree (node and its children) are immediately created.
   Returns subtree with found (or eventually created) node as a root."
   [loc path create?]
-  (if (= path (:path (first loc))) ;; short-circut
+  (if (or (empty? path) (= path (:path (first loc)))) ;; short-circut
     loc
     (loop [node loc
            curr ""

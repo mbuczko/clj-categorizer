@@ -15,7 +15,7 @@
          '[marginalia.html  :refer [*resources*]]
          '[marginalia.core  :as marg])
 
-(def +version+ "0.3.1")
+(def +version+ "0.3.2")
 
 (bootlaces! +version+)
 
