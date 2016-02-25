@@ -107,7 +107,7 @@
   [path]
   (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
     (-> (zip/node loc)
-        (select-keys [:path])
+        (select-keys [:path :subcategories])
         (assoc :props (collect-props loc)))))
 
 (defn remove-at
