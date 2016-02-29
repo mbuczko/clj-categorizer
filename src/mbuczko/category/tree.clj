@@ -122,6 +122,7 @@
   (when-let [loc (find-or-create-node *categories-tree* path false)]
     (-> (zip/node loc)
         (select-keys [:path :subcategories])
+        (update :subcategories #(map :path %))
         (merge (collect-props loc)))))
 
 (defn remove-at
