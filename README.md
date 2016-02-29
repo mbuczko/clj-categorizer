@@ -98,12 +98,10 @@ Result:
 
 ``` clojure
 {:path "/car/BMW/Serie X",
- :props {:status {:value "available"},
-         :condition {:value "functioning"},
-         :has-abs {:version "standard"}}}
+ :status {:value "available"},
+ :condition {:value "functioning"},
+ :has-abs {:version "standard"}}
 ```
-
-
 
 So we got ```Serie X``` with ```:status``` defined as sticky at the top of our tree and ```:condition```, ```:has-abs``` which were defined as sticky at the ```/car``` node.
 Note that we got no ```:has-xenons``` which were assigned to ```/car/BMW``` as sticky. That's because we simply excluded this property on ```/car/BMW/Serie X``` node (_Scenario 3_).
@@ -114,15 +112,14 @@ But that also means, we should get it when asked for ```/car/BMW/Serie X/X3``` a
     (lookup "/car/BMW/Serie X/X3"))
 ```
 
-
 and result:
 
 ``` clojure
 {:path "/car/BMW/Serie X/X3",
- :props {:status {:value "available"},
-         :condition {:value "functioning"},
-         :has-xenons {:version "extended"},
-         :has-sunroof {:version "extended"}}}
+ :status {:value "available"},
+ :condition {:value "functioning"},
+ :has-xenons {:version "extended"},
+ :has-sunroof {:version "extended"}}
 ```
 
 Voila! Xenons came back, so stickness works perfectly - only exceptions marked by ```:excluded true``` have no sticky property assigned.
