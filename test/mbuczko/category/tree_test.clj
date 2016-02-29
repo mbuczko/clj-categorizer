@@ -12,12 +12,12 @@
 (extend-type Category
   Persistent
   (store! [category]
-    (swap! storage assoc (category->key category) (:props category)))
+    (swap! storage assoc (category->key category) true))
   (delete! [category]
     (swap! storage dissoc (category->key category))))
 
 (def categories
-  [{:path "/"    :props {:price {:sticky true}}}
+  [{:path "/"    :props {:price {:sticky true :value 1}}}
    {:path "/car" :props {:status {:rules "required" :sticky true :values ["active" "inactive"]}
                           :condition {:rules "required" :sticky true :values ["broken" "functioning" "unknown"]}
                           :has-trailer {:sticky true}}}
@@ -31,18 +31,19 @@
   (str "category" (.replaceAll (:path category) "/" ":")))
 
 (defn- get-at [path]
+  "Returns node at given path stored in atom-based storage."
   (get @storage path))
 
 (fact "creates empty category tree with correct root node"
       (let [tree (create-tree [])]
         (:path tree) => "/"
-        (:subcategories tree) => []))
+        (:subcategories tree) => falsey))
 
 (fact "creates 1-element category tree"
       (let [tree (create-tree [{:path "car"}])
             subcategories (:subcategories tree)]
         (count subcategories) => 1
-        (get-in tree [:subcategories 0 :path]) => "/car"))
+        (-> tree :subcategories (first) :path) => "/car"))
 
 (fact "finds correct category basing on provided path"
       (with-tree (create-tree categories)
@@ -56,7 +57,7 @@
 
 (fact "gathers sticky properties for given category"
       (with-tree (create-tree categories)
-        (let [props (:props (lookup "/car/BMW/Serie X/X3"))]
+        (let [props (lookup "/car/BMW/Serie X/X3")]
           (contains? props :has-sunroof) => true
           (contains? props :status) => true
           (contains? props :condition) => true
@@ -64,32 +65,33 @@
 
 (fact "excludes properties marked as excluded"
       (with-tree (create-tree categories)
-        (let [props (:props (lookup "/car/BMW/Serie X"))]
+        (let [props (lookup "/car/BMW/Serie X")]
           (contains? props :has-xenons) => false)))
 
 (fact "assigns correctly sticky properties when creating category tree"
       (with-tree (create-tree categories)
-        (let [props (:props (lookup "/car/Acura"))]
+        (let [props (lookup "/car/Acura")]
           (contains? props :has-abs) => true)))
 
 (fact "assigns correctly properties with no sticky/excluded flags"
       (with-tree (create-tree categories)
-        (let [prop1 (:props (lookup "/car/BMW/Serie X"))
-              prop2 (:props (lookup "/car/BMW/Serie X/X3"))]
+        (let [prop1 (lookup "/car/BMW/Serie X")
+              prop2 (lookup "/car/BMW/Serie X/X3")]
           (contains? prop1 :has-eds) => true
           (contains? prop2 :has-eds) => false)))
 
 (fact "newly created tree should be persistent"
       (with-tree (create-tree categories)
-        (let [bmw (get-at "category:car:BMW:Serie X")]
-          (:has-xenons bmw) => truthy)))
+        (create-category (map->Category {:path "/car/BMW/Serie 5"}))
+        (get-at "category:car:BMW:Serie 5") => truthy))
 
 (fact "removed node should be persistently deleted"
       (with-tree (create-tree categories)
+        (let [bmw5 (map->Category {:path "/car/BMW/Serie 5"})
+              tree (create-category bmw5)]
 
-        (lookup "/car/BMW/Serie X") => truthy
-        (get-at "category:car:BMW:Serie X") => truthy
+          (get-at "category:car:BMW:Serie 5") => truthy
 
-        (with-tree (remove-at "/car/BMW/Serie X")
-          (lookup "/car/BMW/Serie X") => falsey
-          (get-at "category:car:BMW:Serie X") => falsey)))
+          (with-tree tree
+            (remove-at "/car/BMW/Serie 5")
+            (get-at "category:car:BMW:Serie 5") => falsey))))

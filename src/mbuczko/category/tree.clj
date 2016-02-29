@@ -1,8 +1,7 @@
 (ns mbuczko.category.tree
   (:require [cheshire.core         :as json]
             [clojure.zip           :as zip]
-            [clojure.tools.logging :as log]
-            [taoensso.carmine      :as r :refer [wcar]]))
+            [clojure.tools.logging :as log]))
 
 (defprotocol TreeNode
   (branch? [node] "Is it possible for node to have children?")
@@ -17,20 +16,20 @@
   TreeNode
   (branch? [node] true)
   (node-children [node] (:subcategories node))
-  (make-node [node children] (Category. (:path node) (:props node) (vec children))))
+  (make-node [node children] (Category. (:path node) (:props node) children)))
 
 (def ^:dynamic *categories-tree* nil)
 
-(defmacro with-tree
-  "Changes default binding to categories tree"
-  [tree & body]
-  `(binding [*categories-tree* ~tree]
-     ~@body))
-
-(defn- tree-zip
+(defn tree-zip
   "Makes a zipper out of a tree."
   [root]
   (zip/zipper branch? node-children make-node root))
+
+(defmacro with-tree
+  "Changes default binding to zipper made of given tree."
+  [tree & body]
+  `(binding [*categories-tree* (tree-zip ~tree)]
+     ~@body))
 
 (defn- find-child-node
   "Looks for a node described by given path among direct children of loc."
@@ -43,7 +42,7 @@
   "Inserts a node with given path as a rightmost child at loc.
   Moves location to newly inserted child."
   [loc path]
-  (let [node (Category. path {} [])]
+  (let [node (Category. path {} nil)]
     (zip/rightmost (zip/down (zip/append-child loc node)))))
 
 (defn- find-or-create-node
@@ -67,6 +66,21 @@
   its parent at second pos and so on."
   [loc]
   (map zip/node (take-while (complement nil?) (iterate zip/up loc))))
+
+(defn- root-loc
+  "Returns root loc of zipper.
+  In contrast to zip/root it does not \"unzip\" the tree."
+  [loc]
+  (loop [node loc]
+    (let [parent (zip/up node)]
+      (if-not parent node (recur parent)))))
+
+(defn- create-category-node
+  "Creates new category node.
+  Moves location to newly created node."
+  [loc category]
+  (when-let [node (find-or-create-node loc (:path category) true)]
+    (zip/edit node assoc :props (:props category))))
 
 (defn sticky?
   "Is property inherited down the category tree?"
@@ -98,50 +112,45 @@
   "Calculates list of properties for given loc in category tree."
   [loc]
   (let [props (-> (mapv :props (trail-at loc))
-                   (update-in [0] stickify-props))]
+                  (update-in [0] stickify-props))]
     (reduce #(reduce sticky-merge %1 %2) {} (rseq props))))
 
 (defn lookup
   "Traverses a tree looking for a category of given path and
   recalculates props to reflect properties inheritance."
   [path]
-  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
+  (when-let [loc (find-or-create-node *categories-tree* path false)]
     (-> (zip/node loc)
         (select-keys [:path :subcategories])
-        (assoc :props (collect-props loc)))))
+        (merge (collect-props loc)))))
 
 (defn remove-at
   "Removes category at given path. Returns altered category tree."
   [path]
-  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) path false)]
+  (when-let [loc (find-or-create-node *categories-tree* path false)]
     (let [node (zip/node loc)]
-
-      ;; remove persistently if necessary
-      (if (satisfies? Persistent node)
-        (delete! node))
-
-      (-> loc
-          (zip/remove)
-          (zip/root)))))
+      (when (satisfies? Persistent node)
+        (delete! node)))
+    (zip/root
+     (zip/remove loc))))
 
 (defn create-category
-  "Adds new category. Returns altred tree."
+  "Adds new category. Returns altred category tree."
   [category]
-  (when-let [loc (find-or-create-node (tree-zip *categories-tree*) (:path category) true)]
-    (let [edited (zip/edit loc assoc :props (:props category))]
+  (let [loc (create-category-node *categories-tree* category)]
+    (if (satisfies? Persistent category)
+      (store! (zip/node loc)))
+    (zip/root loc)))
 
-      ;; make category persistent if necessary
-      (if (satisfies? Persistent category)
-        (store! (zip/node edited)))
-
-      (zip/root edited))))
 
 (defn create-tree
   "Creates category tree basing on provided collection of category paths."
   [coll]
-  (loop [[c & rest] coll node (Category. "/" {} [])]
-    (if-not c node (recur rest (with-tree node
-                                 (create-category (map->Category c)))))))
+  (loop [[c & rest] coll
+         loc (tree-zip (Category. "/" {} nil))]
+    (if-not c
+      (zip/root loc)
+      (recur rest (root-loc (create-category-node loc c))))))
 
 (defn from-file
   "Loads tree definition from external json-formatted file.
