@@ -13,8 +13,7 @@
 ;; Each property may contain one of 2 special flags: ```sticky``` and/or ```excluded``` which decide whether property gets inherited/excluded
 ;; down the tree.
 (def categories
-  [{:path "/"
-    :props {:has-alarm {:sticky true}}}
+  [{:path "/" :props {:has-alarm {:sticky true}}}
    {:path "/car"
     :props {:status  {:sticky true :values ["active" "inactive"]}
             :has-led {:sticky true}
@@ -46,24 +45,24 @@
 ;;   - vector of subcategories described by ```:subcategories```
 [Category{:path "/",
           :props {:has-alarm {:sticky true}},
-          :subcategories [Category{:path "/car",
-                                   :props {:status {:sticky true, :values ["active" "inactive"]},
+          :subcategories (Category{:path "/car",
+                                   :props {:status  {:sticky true, :values ["active" "inactive"]},
                                            :has-led {:sticky true},
                                            :has-abs {:sticky true},
                                            :has-gps {:sticky true}},
-                                   :subcategories [Category{:path "/car/Tarpan",
+                                   :subcategories (Category{:path "/car/Tarpan",
                                                             :props {:has-abs {:excluded true}, :has-gps {:excluded true}},
-                                                            :subcategories []}
+                                                            :subcategories nil}
                                                    Category{:path "/car/Acura",
                                                             :props {:has-asr {:sticky true}, :has-alarm {:excluded true}},
-                                                            :subcategories []}
+                                                            :subcategories nil}
                                                    Category{:path "/car/BMW",
                                                             :props {:has-xenons {:sticky true}},
-                                                            :subcategories [Category{:path "/car/BMW/Serie X",
+                                                            :subcategories (Category{:path "/car/BMW/Serie X",
                                                                                      :props {:has-xenons {:sticky true, :excluded true}, :has-airbag {:is-standard true}},
-                                                                                     :subcategories [Category{:path "/car/BMW/Serie X/X3",
+                                                                                     :subcategories (Category{:path "/car/BMW/Serie X/X3",
                                                                                                               :props {:has-sunroof {:is-standard true}, :has-trailer {:excluded true}},
-                                                                                                              :subcategories []}]}]}]}]}]
+                                                                                                              :subcategories nil})})})})}]
 
 ;; All queries have identical form: tree wrapped into ```with-tree``` macro is passed down as bound variable
 ;; to ```lookup``` function which traverses the tree looking for specified node and its properties.
@@ -74,11 +73,11 @@
 ;; at the top of tree additionally marked as sticky, which means it should be inherited down the tree. Querying for "/car" shows that ```has-alarm``` indeed
 ;; gets added to the list of calculated properties.
 {:path "/car"
- :props {:status {:values ["active" "inactive"]},
-         :has-alarm {},
-         :has-led {},
-         :has-abs {},
-         :has-gps {}}}
+ :status {:values ["active" "inactive"]},
+ :has-alarm {},
+ :has-led {},
+ :has-abs {},
+ :has-gps {}}
 
 ;; Acura happens to have alarm missing in our tree (it's been explicite excluded).
 (with-tree (create-tree categories)
@@ -86,17 +85,17 @@
 
 ;; Querying for "/car/Acura" should then return no ```has-alarm``` property.
 {:path "/car/Acura",
- :props {:status {:values ["active" "inactive"]},
-         :has-led {},
-         :has-abs {},
-         :has-gps {},
-         :has-asr {}}}
+ :status {:values ["active" "inactive"]},
+ :has-led {},
+ :has-abs {},
+ :has-gps {},
+ :has-asr {}}
 
 ;; Last but not least, there are also two other functions exposed which may become helpful when doing manipulation on tree:
 
 ;; ```create-category``` allows dynamically add new category to existing tree. It takes ```Category``` instance as parameter and returns in turn modified category tree.
 (with-tree (create-tree categories)
-  (create-category (Category. "/car/Fiat/126p" {:coolness 100} [])))
+  (create-category (Category. "/car/Fiat/126p" {:coolness 100} nil)))
 
 ;; ```remove-at``` removes category at given path with all its subcategories.
 (with-tree (create-tree categories)
