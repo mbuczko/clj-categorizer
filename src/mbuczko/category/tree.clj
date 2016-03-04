@@ -12,11 +12,11 @@
   (store! [category] "Dumps category into persistent storage.")
   (delete! [category] "Deletes category from tree and persistent storage"))
 
-(defrecord Category [path props subcategories]
+(defrecord Category [path props uuid subcategories]
   TreeNode
   (branch? [node] true)
   (node-children [node] (:subcategories node))
-  (make-node [node children] (Category. (:path node) (:props node) children)))
+  (make-node [node children] (Category. (:path node) (:props node) (:uuid node) children)))
 
 (def ^:dynamic *categories-tree* nil)
 
@@ -42,7 +42,7 @@
   "Inserts a node with given path as a rightmost child at loc.
   Moves location to newly inserted child."
   [loc path]
-  (let [node (Category. path {} nil)]
+  (let [node (Category. path {} nil nil)]
     (zip/rightmost (zip/down (zip/append-child loc node)))))
 
 (defn- find-or-create-node
@@ -80,7 +80,10 @@
   Moves location to newly created node."
   [loc category]
   (when-let [node (find-or-create-node loc (:path category) true)]
-    (zip/edit node assoc :props (:props category))))
+    (zip/edit node assoc
+              :props (:props category)
+              :uuid (or (:uuid category)
+                        (.toString (java.util.UUID/randomUUID))))))
 
 (defn sticky?
   "Is property inherited down the category tree?"
@@ -115,14 +118,19 @@
                   (update-in [0] stickify-props))]
     (reduce #(reduce sticky-merge %1 %2) {} (rseq props))))
 
+(defn update-children [children]
+  "Narrows each child of children to exclude :props and :subcategories."
+  (letfn [(narrow [s] (dissoc s :props :subcategories))]
+    (map narrow children)))
+
 (defn lookup
   "Traverses a tree looking for a category of given path and
   recalculates props to reflect properties inheritance."
   [path]
   (when-let [loc (find-or-create-node *categories-tree* path false)]
     (-> (zip/node loc)
-        (select-keys [:path :subcategories])
-        (update :subcategories #(map :path %))
+        (select-keys [:path :uuid :subcategories])
+        (update :subcategories update-children)
         (merge (collect-props loc)))))
 
 (defn remove-at
@@ -148,7 +156,7 @@
   "Creates category tree basing on provided collection of category paths."
   [coll]
   (loop [[c & rest] coll
-         loc (tree-zip (Category. "/" {} nil))]
+         loc (tree-zip (Category. "/" {} nil nil))]
     (if-not c
       (zip/root loc)
       (recur rest (root-loc (create-category-node loc c))))))
