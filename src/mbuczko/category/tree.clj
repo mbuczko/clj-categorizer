@@ -1,7 +1,7 @@
 (ns mbuczko.category.tree
-  (:require [cheshire.core         :as json]
-            [clojure.zip           :as zip]
-            [clojure.tools.logging :as log]))
+  (:require [cheshire.core  :as json]
+            [clojure.zip    :as zip]
+            [clojure.string :as str]))
 
 (defprotocol TreeNode
   (branch? [node] "Is it possible for node to have children?")
@@ -47,19 +47,14 @@
 
 (defn- find-or-create-node
   "Recursively looks for a node with a given path beginning at loc.
-  When node was not found and create? is true whole the subtree (node and its children) are immediately created.
-  Returns subtree with found (or eventually created) node as a root."
+  When node was not found and create? is true whole the subtree (node and its children) are immediately created."
   [loc path create?]
-  (if (or (empty? path) (= path (:path (first loc)))) ;; short-circut
-    loc
-    (loop [node loc
-           curr ""
-           [head & rest] (drop-while empty? (.split path "/"))]
-      (let [cpath (str curr "/" head)
-            child (or (find-child-node node cpath)
-                      (when create? (create-child-node node cpath)))]
+  (if-not (= path (:path (first loc))) ;; short-circut
+    (loop [node loc, [head & rest] (drop-while empty? (.split path "/"))]
+      (let [child (or (find-child-node node head)
+                      (when create? (create-child-node node head)))]
         (if (and rest child)
-          (recur child cpath rest) child)))))
+          (recur child rest) child))) loc))
 
 (defn- trail-at
   "Returns list of parents of node at given loc with node itsef included at first pos,
@@ -76,14 +71,14 @@
       (if-not parent node (recur parent)))))
 
 (defn- create-category-node
-  "Creates new category node.
+  "Creates new category node at path with given props and uuid.
+  If no uuid was provided a new one will be auto-generated.
   Moves location to newly created node."
-  [loc category]
-  (when-let [node (find-or-create-node loc (:path category) true)]
+  [loc path props uuid]
+  (when-let [node (find-or-create-node loc path true)]
     (zip/edit node assoc
-              :props (:props category)
-              :uuid (or (:uuid category)
-                        (.toString (java.util.UUID/randomUUID))))))
+              :props props
+              :uuid (or uuid (.toString (java.util.UUID/randomUUID))))))
 
 (defn sticky?
   "Is property inherited down the category tree?"
@@ -118,20 +113,23 @@
                   (update-in [0] stickify-props))]
     (reduce #(reduce sticky-merge %1 %2) {} (rseq props))))
 
-(defn update-children [children]
-  "Narrows each child of children to exclude :props and :subcategories."
-  (letfn [(narrow [s] (dissoc s :props :subcategories))]
-    (map narrow children)))
+(defn- update-children [children]
+  "Modifies each child by:
+    - excluding :props (no need to present them as they're internal details)
+    - excluding :subcategories (no need to show children recursively)"
+  (map #(dissoc % :props :subcategories) children))
 
 (defn lookup
   "Traverses a tree looking for a category of given path and
   recalculates props to reflect properties inheritance."
   [path]
   (when-let [loc (find-or-create-node *categories-tree* path false)]
-    (-> (zip/node loc)
-        (select-keys [:path :uuid :subcategories])
-        (update :subcategories update-children)
-        (merge (collect-props loc)))))
+    (let [node (zip/node loc)]
+      (-> node
+          (select-keys [:uuid :subcategories])
+          (update :subcategories update-children)
+          (assoc  :path path)
+          (merge  (collect-props loc))))))
 
 (defn remove-at
   "Removes category at given path. Returns altered category tree."
@@ -139,18 +137,30 @@
   (when-let [loc (find-or-create-node *categories-tree* path false)]
     (let [node (zip/node loc)]
       (when (satisfies? Persistent node)
-        (delete! node)))
+        (delete! (assoc node :path path))))
     (zip/root
      (zip/remove loc))))
 
 (defn create-category
-  "Adds new category. Returns altred category tree."
-  [category]
-  (let [loc (create-category-node *categories-tree* category)]
-    (if (satisfies? Persistent category)
-      (store! (zip/node loc)))
-    (zip/root loc)))
+  "Adds new category at path with given props. Returns altred category tree."
+  ([path props]
+   (create-category path props nil))
+  ([path props subcategories]
+   (when-let [loc (create-category-node *categories-tree* path props nil)]
+     (let [node (zip/node loc)]
+       (if (satisfies? Persistent node)
+         (store! (assoc node :path path)))
+       (zip/root (if subcategories (zip/edit loc assoc :subcategories subcategories) loc))))))
 
+(defn update-at
+  "Updates category path and/or props. When path is changed - moves category with
+  all its children to new location. Returns altered category tree."
+  [path new-path props]
+  (when (and new-path (not (= path new-path)))
+    (when-let [loc (find-or-create-node *categories-tree* path false)]
+      (let [node (zip/node loc)]
+        (with-tree (remove-at path)
+          (create-category new-path (or props (:props node)) (:subcategories node)))))))
 
 (defn create-tree
   "Creates category tree basing on provided collection of category paths."
@@ -159,7 +169,7 @@
          loc (tree-zip (Category. "/" {} nil nil))]
     (if-not c
       (zip/root loc)
-      (recur rest (root-loc (create-category-node loc c))))))
+      (recur rest (root-loc (create-category-node loc (:path c) (:props c) (:uuid c)))))))
 
 (defn from-file
   "Loads tree definition from external json-formatted file.
@@ -175,6 +185,5 @@
   used to perform inheritance calculations."
   ([path]
    (when-let [reader (clojure.java.io/reader path)]
-     (log/info "Loading categories from" path)
      (when-let [tree (create-tree (json/parse-stream reader true))]
        (reset! *categories-tree* tree)))))

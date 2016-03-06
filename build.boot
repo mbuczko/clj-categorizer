@@ -1,7 +1,7 @@
 (set-env!
  :source-paths   #{"src"}
  :dependencies '[[org.clojure/clojure "1.8.0" :scope "provided"]
-                 [org.clojure/tools.logging "0.3.1"]
+                 [org.clojure/tools.logging "0.3.1" :scope "test"]
                  [boot/core "2.5.5" :scope "test"]
                  [adzerk/bootlaces "0.1.13" :scope "test"]
                  [zilti/boot-midje "0.2.1-SNAPSHOT" :scope "test"]
@@ -14,7 +14,7 @@
          '[marginalia.html  :refer [*resources*]]
          '[marginalia.core  :as marg])
 
-(def +version+ "0.4.1")
+(def +version+ "0.4.2")
 
 (bootlaces! +version+)
 
