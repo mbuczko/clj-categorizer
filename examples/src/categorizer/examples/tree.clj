@@ -41,26 +41,34 @@
 ;; Internally each node of category tree is represented by ```Category``` type which encapsulates 3 important things:
 ;;
 ;;   - category path described by ```:path``` value
+;;   - uuid which identifies category
 ;;   - map of properties described by ```:props```
 ;;   - vector of subcategories described by ```:subcategories```
 [Category{:path "/",
           :props {:has-alarm {:sticky true}},
-          :subcategories (Category{:path "/car",
+          :uuid "3ee61adc-1583-4579-adfb-081ebe1ac457"
+          :subcategories (Category{:path "car",
+                                   :uuid "115098c5-aa7d-4ad0-8ce2-80e731a9ec2e"
                                    :props {:status  {:sticky true, :values ["active" "inactive"]},
                                            :has-led {:sticky true},
                                            :has-abs {:sticky true},
                                            :has-gps {:sticky true}},
-                                   :subcategories (Category{:path "/car/Tarpan",
+                                   :subcategories (Category{:path "Tarpan",
+                                                            :uuid "7fd972f9-86ad-42d7-a7f2-5bedd85e49a8"
                                                             :props {:has-abs {:excluded true}, :has-gps {:excluded true}},
                                                             :subcategories nil}
-                                                   Category{:path "/car/Acura",
+                                                   Category{:path "Acura",
+                                                            :uuid "11cda19e-7d38-464e-8f47-c88a94c64ff0"
                                                             :props {:has-asr {:sticky true}, :has-alarm {:excluded true}},
                                                             :subcategories nil}
-                                                   Category{:path "/car/BMW",
+                                                   Category{:path "BMW",
+                                                            :uuid "76a257ee-0a8e-48ce-a645-a9168dde5d99"
                                                             :props {:has-xenons {:sticky true}},
-                                                            :subcategories (Category{:path "/car/BMW/Serie X",
+                                                            :subcategories (Category{:path "Serie X",
+                                                                                     :uuid "d5c7ae9c-a28d-4c77-b2dd-c02bc9064d8c"
                                                                                      :props {:has-xenons {:sticky true, :excluded true}, :has-airbag {:is-standard true}},
-                                                                                     :subcategories (Category{:path "/car/BMW/Serie X/X3",
+                                                                                     :subcategories (Category{:path "X3",
+                                                                                                              :uuid "868ddede-9293-4ac8-9c61-8354c11"
                                                                                                               :props {:has-sunroof {:is-standard true}, :has-trailer {:excluded true}},
                                                                                                               :subcategories nil})})})})}]
 
@@ -68,6 +76,15 @@
 ;; to ```lookup``` function which traverses the tree looking for specified node and its properties.
 (with-tree (create-tree categories)
   (lookup "/car"))
+
+;; Oh, btw. ```lookup``` function may have a ```:sort-by``` option which controls the order that children are returned in. It takes an argument
+;; - a function which is used against each child to deduce an order.
+(with-tree (create-tree categories)
+  (lookup "/car" :sort-by :path))
+
+;; Sorting may utilize ```:props``` map as well
+(with-tree (create-tree categories)
+  (lookup "/car" :sort-by (comp :value :price :props)))
 
 ;; Depending on sticky/excluded flags we should get a node (if found) together with combined properties. Look at the ```has-alarm```property. It's defined
 ;; at the top of tree additionally marked as sticky, which means it should be inherited down the tree. Querying for "/car" shows that ```has-alarm``` indeed
@@ -91,15 +108,21 @@
  :has-gps {},
  :has-asr {}}
 
-;; Last but not least, there are also two other functions exposed which may become helpful when doing manipulation on tree:
+;; Last but not least, there are also 3 other functions exposed which may become helpful when doing manipulation on tree:
 
-;; ```create-category``` allows dynamically add new category to existing tree. It takes ```Category``` instance as parameter and returns in turn modified category tree.
+;; ```create-category``` allows dynamically add new category to existing tree. It takes path and props as arguments and returns in turn modified category tree.
 (with-tree (create-tree categories)
-  (create-category (Category. "/car/Fiat/126p" {:coolness 100} nil)))
+  (create-category "/car/Fiat/126p" {:coolness 100}))
 
 ;; ```remove-at``` removes category at given path with all its subcategories.
 (with-tree (create-tree categories)
   (remove-at "/car/Fiat"))
+
+;; ```update-at``` updates a path and (optionally) props. If path differs from the old one - category will be moved into new location along with all its children.
+;; ```:props``` will be updated only if provided one is not nil. Otherwise ```:props``` remains unaltered even though the node may have changed its location within tree.
+(with-tree (create-tree categories)
+  (update-at "/car/BMW/Serie X" "/car/Fiat" nil))
+
 
 ;; Finally, to make tree persistent it's pretty enough to extend ```Category``` type with ```Persistent``` protocol and
 ;; implement 2 functions: ```store!``` and ```delete!```. In-memory implementation of trivial storage may look like this.
