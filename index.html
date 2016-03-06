@@ -2865,7 +2865,7 @@ net.brehaut.ClojureTools = (function (SH) {
     build_tree: build_tree
   };
 })(SyntaxHighlighter);
-</script><title>mbuczko/categorizer -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">mbuczko/categorizer</h1><h2 class="project-version">0.4.0</h2><br />
+</script><title>mbuczko/categorizer -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">mbuczko/categorizer</h1><h2 class="project-version">0.4.3</h2><br />
 </div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#categorizer.examples.tree">categorizer.examples.tree</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#categorizer.examples.tree" name="categorizer.examples.tree"><h1 class="project-name">categorizer.examples.tree</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(ns categorizer.examples.tree
   (:require
@@ -2905,32 +2905,45 @@ a structure as the one prepared earlier and returns a tree which can be used in 
 
 <ul>
 <li>category path described by <code>:path</code> value</li>
+<li>uuid which identifies category</li>
 <li>map of properties described by <code>:props</code></li>
 <li>vector of subcategories described by <code>:subcategories</code></li>
 </ul>
 </td><td class="codes"><pre class="brush: clojure">[Category{:path &quot;/&quot;,
           :props {:has-alarm {:sticky true}},
-          :subcategories (Category{:path &quot;/car&quot;,
+          :uuid &quot;3ee61adc-1583-4579-adfb-081ebe1ac457&quot;
+          :subcategories (Category{:path &quot;car&quot;,
+                                   :uuid &quot;115098c5-aa7d-4ad0-8ce2-80e731a9ec2e&quot;
                                    :props {:status  {:sticky true, :values [&quot;active&quot; &quot;inactive&quot;]},
                                            :has-led {:sticky true},
                                            :has-abs {:sticky true},
                                            :has-gps {:sticky true}},
-                                   :subcategories (Category{:path &quot;/car/Tarpan&quot;,
+                                   :subcategories (Category{:path &quot;Tarpan&quot;,
+                                                            :uuid &quot;7fd972f9-86ad-42d7-a7f2-5bedd85e49a8&quot;
                                                             :props {:has-abs {:excluded true}, :has-gps {:excluded true}},
                                                             :subcategories nil}
-                                                   Category{:path &quot;/car/Acura&quot;,
+                                                   Category{:path &quot;Acura&quot;,
+                                                            :uuid &quot;11cda19e-7d38-464e-8f47-c88a94c64ff0&quot;
                                                             :props {:has-asr {:sticky true}, :has-alarm {:excluded true}},
                                                             :subcategories nil}
-                                                   Category{:path &quot;/car/BMW&quot;,
+                                                   Category{:path &quot;BMW&quot;,
+                                                            :uuid &quot;76a257ee-0a8e-48ce-a645-a9168dde5d99&quot;
                                                             :props {:has-xenons {:sticky true}},
-                                                            :subcategories (Category{:path &quot;/car/BMW/Serie X&quot;,
+                                                            :subcategories (Category{:path &quot;Serie X&quot;,
+                                                                                     :uuid &quot;d5c7ae9c-a28d-4c77-b2dd-c02bc9064d8c&quot;
                                                                                      :props {:has-xenons {:sticky true, :excluded true}, :has-airbag {:is-standard true}},
-                                                                                     :subcategories (Category{:path &quot;/car/BMW/Serie X/X3&quot;,
+                                                                                     :subcategories (Category{:path &quot;X3&quot;,
+                                                                                                              :uuid &quot;868ddede-9293-4ac8-9c61-8354c11&quot;
                                                                                                               :props {:has-sunroof {:is-standard true}, :has-trailer {:excluded true}},
                                                                                                               :subcategories nil})})})})}]</pre></td></tr><tr><td class="docs"><p>All queries have identical form: tree wrapped into <code>with-tree</code> macro is passed down as bound variable
 to <code>lookup</code> function which traverses the tree looking for specified node and its properties.</p>
 </td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
-  (lookup &quot;/car&quot;))</pre></td></tr><tr><td class="docs"><p>Depending on sticky/excluded flags we should get a node (if found) together with combined properties. Look at the <code>has-alarm</code>property. It's defined
+  (lookup &quot;/car&quot;))</pre></td></tr><tr><td class="docs"><p>Oh, btw. <code>lookup</code> function may have a <code>:sort-by</code> option which controls the order that children are returned in. It takes an argument
+- a function which is used against each child to deduce an order.</p>
+</td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
+  (lookup &quot;/car&quot; :sort-by :path))</pre></td></tr><tr><td class="docs"><p>Sorting may utilize <code>:props</code> map as well</p>
+</td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
+  (lookup &quot;/car&quot; :sort-by (comp :value :price :props)))</pre></td></tr><tr><td class="docs"><p>Depending on sticky/excluded flags we should get a node (if found) together with combined properties. Look at the <code>has-alarm</code>property. It's defined
 at the top of tree additionally marked as sticky, which means it should be inherited down the tree. Querying for "/car" shows that <code>has-alarm</code> indeed
 gets added to the list of calculated properties.</p>
 </td><td class="codes"><pre class="brush: clojure">{:path &quot;/car&quot;
@@ -2946,12 +2959,15 @@ gets added to the list of calculated properties.</p>
  :has-led {},
  :has-abs {},
  :has-gps {},
- :has-asr {}}</pre></td></tr><tr><td class="docs"><p>Last but not least, there are also two other functions exposed which may become helpful when doing manipulation on tree:</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p><code>create-category</code> allows dynamically add new category to existing tree. It takes <code>Category</code> instance as parameter and returns in turn modified category tree.</p>
+ :has-asr {}}</pre></td></tr><tr><td class="docs"><p>Last but not least, there are also 3 other functions exposed which may become helpful when doing manipulation on tree:</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p><code>create-category</code> allows dynamically add new category to existing tree. It takes path and props as arguments and returns in turn modified category tree.</p>
 </td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
-  (create-category (Category. &quot;/car/Fiat/126p&quot; {:coolness 100} nil)))</pre></td></tr><tr><td class="docs"><p><code>remove-at</code> removes category at given path with all its subcategories.</p>
+  (create-category &quot;/car/Fiat/126p&quot; {:coolness 100}))</pre></td></tr><tr><td class="docs"><p><code>remove-at</code> removes category at given path with all its subcategories.</p>
 </td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
-  (remove-at &quot;/car/Fiat&quot;))</pre></td></tr><tr><td class="docs"><p>Finally, to make tree persistent it's pretty enough to extend <code>Category</code> type with <code>Persistent</code> protocol and
+  (remove-at &quot;/car/Fiat&quot;))</pre></td></tr><tr><td class="docs"><p><code>update-at</code> updates a path and (optionally) props. If path differs from the old one - category will be moved into new location along with all its children.
+<code>:props</code> will be updated only if provided one is not nil. Otherwise <code>:props</code> remains unaltered even though the node may have changed its location within tree.</p>
+</td><td class="codes"><pre class="brush: clojure">(with-tree (create-tree categories)
+  (update-at &quot;/car/BMW/Serie X&quot; &quot;/car/Fiat&quot; nil))</pre></td></tr><tr><td class="docs"><p>Finally, to make tree persistent it's pretty enough to extend <code>Category</code> type with <code>Persistent</code> protocol and
 implement 2 functions: <code>store!</code> and <code>delete!</code>. In-memory implementation of trivial storage may look like this.</p>
 </td><td class="codes"><pre class="brush: clojure">(def storage (atom {}))
 (extend-type Category
