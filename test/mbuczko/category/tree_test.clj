@@ -22,9 +22,9 @@
    {:path "/car" :props {:status {:rules "required" :sticky true :values ["active" "inactive"]}
                           :condition {:rules "required" :sticky true :values ["broken" "functioning" "unknown"]}
                           :has-trailer {:sticky true}}}
-   {:path "/car/Tarpan" :props {:has-abs {:sticky true}}},
-   {:path "/car/Acura"  :props {:has-abs {:sticky true}}}
-   {:path "/car/BMW"    :props {:has-xenons {:sticky true}}}
+   {:path "/car/Tarpan" :props {:has-abs {:sticky true} :price {:value 300}}},
+   {:path "/car/Acura"  :props {:has-abs {:sticky true} :price {:value 200}}}
+   {:path "/car/BMW"    :props {:has-xenons {:sticky true} :price {:value 500}}}
    {:path "/car/BMW/Serie X"    :props {:has-xenons {:sticky true :excluded true} :has-eds {}}}
    {:path "/car/BMW/Serie X/X3" :props {:has-sunroof {} :has-trailer {:excluded true}}}])
 

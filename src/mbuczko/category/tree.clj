@@ -1,7 +1,6 @@
 (ns mbuczko.category.tree
-  (:require [cheshire.core  :as json]
-            [clojure.zip    :as zip]
-            [clojure.string :as str]))
+  (:require [cheshire.core :as json]
+            [clojure.zip :as zip]))
 
 (defprotocol TreeNode
   (branch? [node] "Is it possible for node to have children?")
@@ -113,21 +112,24 @@
                   (update-in [0] stickify-props))]
     (reduce #(reduce sticky-merge %1 %2) {} (rseq props))))
 
-(defn- update-children [children]
+(defn- update-children [opts children]
   "Modifies each child by:
     - excluding :props (no need to present them as they're internal details)
-    - excluding :subcategories (no need to show children recursively)"
-  (map #(dissoc % :props :subcategories) children))
+    - excluding :subcategories (no need to return all the children recursively)"
+  (let [sorted (if (= (first opts) :sort-by)
+                 (sort-by (second opts) children)
+                 children)]
+    (map #(dissoc % :props :subcategories) sorted)))
 
 (defn lookup
   "Traverses a tree looking for a category of given path and
   recalculates props to reflect properties inheritance."
-  [path]
+  [path & opts]
   (when-let [loc (find-or-create-node *categories-tree* path false)]
     (let [node (zip/node loc)]
       (-> node
           (select-keys [:uuid :subcategories])
-          (update :subcategories update-children)
+          (update :subcategories (partial update-children opts))
           (assoc  :path path)
           (merge  (collect-props loc))))))
 
