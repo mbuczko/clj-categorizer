@@ -47,7 +47,7 @@ Now, let's imagine for a moment that BMW is the make with no ABS-es under the ho
 
 That's right - we're using inheritance again, this time to make exclusion easier. Instead of assigning exluded ```:has-abs```  to each BMW subnode, we may do it once (at BMW level) and mark exclusion as inherited. That means, all the subnodes have no ABS-es by default with no explicit exclusions made before.
 
-#Details
+## Details
 
 We have 4 scenarios of how props can be assigned to tree nodes to save us a time and precious resources. Let's go deeper into details then.
 4 scenarios mean 2 boolean flags we should use. I named them ```sticky``` and ```excluded```. Here is how they fit into our story:
@@ -60,7 +60,7 @@ We have 4 scenarios of how props can be assigned to tree nodes to save us a time
 Easy peasy. The theory part is over :)
 
 
-#Example
+## Example
 
 Let's define our tree first. Each property (like ```:price```, ```:type``` or ```status```) is a simple map containing ```:sticky``` and/or ```:excluded``` flags if necessary. Also, to avoid deep nesting each node contains a ```:path``` which is directory-like (slash separated) absolute path of node in our tree. This
 way we may keep our tree definition flat and more readable.
@@ -127,7 +127,7 @@ Voila! Xenons came back, so stickness works perfectly - only exceptions marked b
 Look for [other examples](http://mbuczko.github.io/categorizer) if you want to dive into details.
 
 
-##LICENSE
+## LICENSE
 
 Copyright © Michał Buczko
 
